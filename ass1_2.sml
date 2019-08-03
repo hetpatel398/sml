@@ -4,6 +4,12 @@
 
 exception notADigit;
 
+fun printList [] = ()
+|   printList(h::T) = (
+                print(Int.toString(h));
+                print("\n");
+                printList(T)
+            );
 (*
   val charToInt = fn : char -> int
 
@@ -28,7 +34,7 @@ fun pad0 (l) =
 fun revH0([], ans)=ans
 |   revH0(lst as h::t, ans) = revH0(t, h::ans);
 
-fun revH(l, ans) =
+fun revH(l) =
       revH0(l, []);
 
 (*
@@ -48,7 +54,7 @@ fun adjustLength(a,b) =
 (*
   This function splits the list in the argument in two parts
 *)
-fun splitList0 (lst, 0, A) =(revH(A, []), lst)
+fun splitList0 (lst, 0, A) =(revH(A), lst)
 |   splitList0 (lst as h::t, diff, A) =
           splitList0(t, diff-1, h::A);
 
@@ -61,6 +67,19 @@ fun splitList(lst as h::t) =
     end;
 
 (*
+  Append 0's at the end of the list to mimick multiplication by 10 pow m where m is argument in the function
+*)
+fun appendList([], []) = []
+|   appendList([], l2) = l2
+|   appendList(l1, []) = l1
+|   appendList(l1 as h1::t1, l2 as h2::t2) =
+            appendList(t1, h1::l2);
+
+fun append0_logic (lst, 0) = revH(lst)
+|   append0_logic (lst, m) = append0_logic(0::lst, m-1);
+
+fun append0(lst, m) = append0_logic(revH(lst), m)
+(*
   val makeListOfDigits = fn : int list * int * int * int list -> int list
 
   This function takes list containing digits as an input and gives list which contains number of base 10^4.
@@ -69,7 +88,7 @@ fun splitList(lst as h::t) =
     remaining4 : Counter using which we have count when to create a new element in the list when we reach 4 digits
     x : contains intermediate sum using which we create 4 digit number by picking four digits from the List
     lst : This is our list which contains output
-
+pp
   Sample input : makeListOfDigits([0,0,0,1,2,3,4,5,6,7,8,9], 3, 0, [])
   output : [6789, 2345, 1]
 *)
@@ -83,6 +102,19 @@ fun makeListOfDigits([], _, _, l)                        = l
                     makeListOfDigits(t, 1, a*100+x, lst)
                 else
                     makeListOfDigits(t, 2, a*1000+x, lst);
+
+(*
+  val fromString = fn : string -> int list
+  This function takes input String and returns list of digits in base B=10^4
+*)
+fun fromString("") = []
+|   fromString(s)  =
+                let
+                    val chars=String.explode(s)
+                in
+                    revH(makeListOfDigits(map charToInt (pad0 chars), 3, 0, []))
+                end;
+
 
 (*
   This function takes two list both containing two 4 digit numbers and produce multiplication using karatsuba algorithm
@@ -128,8 +160,8 @@ fun add_lst0([],[],result as h::t, carry) =
 fun add_lst(a,b) =
                 let
                   val (A,B) = adjustLength(a,b)
-                  val revA=revH(A,[])
-                  val revB=revH(B,[])
+                  val revA=revH(A)
+                  val revB=revH(B)
                 in
                   add_lst0(revA,revB,[],0)
                 end;
@@ -151,7 +183,8 @@ fun isAGreaterThanB([], []) = true
                 else if ah=bh then isAGreaterThanB(at, bt)
                 else false;
 
-fun sub_list0([ah], [bh], result as h::t, borrow) =
+fun sub_list0([],[], result, _) = result
+|   sub_list0([ah], [bh], result as h::t, borrow) =
                 if borrow=0 then (ah-bh)::result
                 else (ah-1-bh)::result
 |   sub_list0(a as ah::at, b as bh::bt, result, borrow) =
@@ -166,24 +199,43 @@ fun sub_list(a as ah::at, b as bh::bt) =
                 let
                   val (A,B) = adjustLength(a,b)
                   val isPositive = isAGreaterThanB(A,B)
-                  val revA=revH(A,[])
-                  val revB=revH(B,[])
+                  val revA=revH(A)
+                  val revB=revH(B)
                 in
-                  if isPositive then (sub_list0(revA,revB,[],0), isPositive)
-                  else (sub_list0(revB,revA,[],0), isPositive)
+                  if isPositive then sub_list0(revA,revB,[],0)
+                  else sub_list0(revB,revA,[],0)
                 end;
-
-fun karatsuba0(a as ah::at,b as bh::bt,ans) = nil
 
 (*
-  val fromString = fn : string -> int list
-
-  This function takes input String and returns list of digits in base B=10^4
+  Implement of Karatsuba algorithm for multiplication
 *)
-fun fromString("") = []
-|   fromString(s)  =
+fun karatsuba0([a],[b])=[(a*b) div 10000, (a*b) mod 10000]
+|   karatsuba0(a as ah::at,b as bh::bt) =
                 let
-                    val chars=String.explode(s)
+                  val (X,Y)=adjustLength(a,b)
+                  val m = ( lenH(X) + 1) div 2
+                  val (X1, X0) = splitList(X)
+                  val (Y1, Y0) = splitList(Y)
+                  val (x1,x0)=adjustLength(X1,X0)
+                  val (y1,y0)=adjustLength(Y1,Y0)
+                  val z2 = karatsuba0(x1,y1)
+                  val z0 = karatsuba0(x0,y0)
+                  val diff_x = sub_list(x0,x1)
+                  val sign_x = isAGreaterThanB(x0,x1)
+                  val diff_y = sub_list(y1,y0)
+                  val sign_y = isAGreaterThanB(y1,y0)
+                  val modProdOfDiff = karatsuba0(diff_x, diff_y)
                 in
-                    makeListOfDigits(map charToInt (pad0 chars), 3, 0, [])
+                  if sign_x andalso sign_y then add_lst(add_lst(append0(add_lst(add_lst(z2, modProdOfDiff), z0), m), z0), append0(z2,m*2))
+                  else add_lst(add_lst((append0(sub_list(add_lst(z2, z0),modProdOfDiff), m)), append0(z2,m*2)), z0)
                 end;
+
+(*
+  This function implements factorial
+*)
+fun remove0([])=[]
+|   remove0(lst as h::t)= if h=0 then remove0(t)
+                          else lst;
+
+fun factorial([0]) = [1]
+|   factorial(n) = remove0(karatsuba0(n,factorial(sub_list(n,[1]))));
