@@ -126,12 +126,16 @@ fun intToCharArray ([]) = []
                   revH([Char.chr(x3), Char.chr(x2), Char.chr(x1), Char.chr(x0)])@intToCharArray(t)
                 end;
 
+fun remove0Char([]) = []
+|   remove0Char(lst as h::t) =  if Char.compare(h,#"0")=EQUAL then remove0Char(t)
+                                else lst;
+
 fun toString([])        = ""
 |   toString(l as h::t) =
                 let
                   val revList=revH(l)
                 in
-                  implode (revH(intToCharArray(revList)))
+                  implode ((revH(intToCharArray(revList))))
                 end;
 
 (*
@@ -256,6 +260,6 @@ fun remove0([])=[]
                           else lst;
 
 fun factorial0([0]) = [1]
-|   factorial0(n) = remove0(karatsuba (n) (factorial(sub_list(n,[1]))) );
+|   factorial0(n) = remove0(karatsuba (n) (factorial0(sub_list(n,[1]))) );
 
 fun factorial(s) = toString(factorial0(fromString(s)));
