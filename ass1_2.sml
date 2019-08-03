@@ -48,7 +48,7 @@ fun lenH([])=0
 *)
 fun adjustLength(a,b) =
     if lenH(a) = lenH(b) then (a,b)
-    else if lenH(a) > lenH(b) then adjustLength(a,0::b)
+    else if Int.>(lenH(a),lenH(b)) then adjustLength(a,0::b)
     else adjustLength(0::a, b);
 
 (*
@@ -115,6 +115,24 @@ fun fromString("") = []
                     revH(makeListOfDigits(map charToInt (pad0 chars), 3, 0, []))
                 end;
 
+fun intToCharArray ([]) = []
+|   intToCharArray (l as i::t) =
+                let
+                  val x0=i mod 10 + 48
+                  val x1=(i div 10) mod 10 + 48
+                  val x2=(i div 100) mod 10 + 48
+                  val x3=(i div 1000) mod 10 + 48
+                in
+                  revH([Char.chr(x3), Char.chr(x2), Char.chr(x1), Char.chr(x0)])@intToCharArray(t)
+                end;
+
+fun toString([])        = ""
+|   toString(l as h::t) =
+                let
+                  val revList=revH(l)
+                in
+                  implode (revH(intToCharArray(revList)))
+                end;
 
 (*
   This function takes two list both containing two 4 digit numbers and produce multiplication using karatsuba algorithm
@@ -179,7 +197,7 @@ fun add_lst(a,b) =
 
 fun isAGreaterThanB([], []) = true
 |   isAGreaterThanB(A as ah::at, B as bh::bt) =
-                if ah>bh then true
+                if Int.>(ah,bh) then true
                 else if ah=bh then isAGreaterThanB(at, bt)
                 else false;
 
@@ -191,7 +209,7 @@ fun sub_list0([],[], result, _) = result
                 let
                   val sub = (ah-borrow)-bh
                 in
-                  if sub<0 then sub_list0(at, bt, (10000+sub)::result, 1)
+                  if Int.<(sub,0) then sub_list0(at, bt, (10000+sub)::result, 1)
                   else sub_list0(at, bt, sub::result, 0)
                 end;
 
@@ -209,22 +227,22 @@ fun sub_list(a as ah::at, b as bh::bt) =
 (*
   Implement of Karatsuba algorithm for multiplication
 *)
-fun karatsuba0([a],[b])=[(a*b) div 10000, (a*b) mod 10000]
-|   karatsuba0(a as ah::at,b as bh::bt) =
+fun karatsuba [a] [b] =[(a*b) div 10000, (a*b) mod 10000]
+|   karatsuba (a as ah::at) (b as bh::bt) =
                 let
                   val (X,Y)=adjustLength(a,b)
-                  val m = ( lenH(X) + 1) div 2
+                  val m = (lenH(X) + 1) div 2
                   val (X1, X0) = splitList(X)
                   val (Y1, Y0) = splitList(Y)
                   val (x1,x0)=adjustLength(X1,X0)
                   val (y1,y0)=adjustLength(Y1,Y0)
-                  val z2 = karatsuba0(x1,y1)
-                  val z0 = karatsuba0(x0,y0)
+                  val z2 = karatsuba x1 y1
+                  val z0 = karatsuba x0 y0
                   val diff_x = sub_list(x0,x1)
                   val sign_x = isAGreaterThanB(x0,x1)
                   val diff_y = sub_list(y1,y0)
                   val sign_y = isAGreaterThanB(y1,y0)
-                  val modProdOfDiff = karatsuba0(diff_x, diff_y)
+                  val modProdOfDiff = karatsuba diff_x diff_y
                 in
                   if sign_x andalso sign_y then add_lst(add_lst(append0(add_lst(add_lst(z2, modProdOfDiff), z0), m), z0), append0(z2,m*2))
                   else add_lst(add_lst((append0(sub_list(add_lst(z2, z0),modProdOfDiff), m)), append0(z2,m*2)), z0)
@@ -237,5 +255,7 @@ fun remove0([])=[]
 |   remove0(lst as h::t)= if h=0 then remove0(t)
                           else lst;
 
-fun factorial([0]) = [1]
-|   factorial(n) = remove0(karatsuba0(n,factorial(sub_list(n,[1]))));
+fun factorial0([0]) = [1]
+|   factorial0(n) = remove0(karatsuba (n) (factorial(sub_list(n,[1]))) );
+
+fun factorial(s) = toString(factorial0(fromString(s)));
