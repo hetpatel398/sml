@@ -4,12 +4,6 @@
 
 exception notADigit;
 
-fun printList [] = ()
-|   printList(h::T) = (
-                print(Int.toString(h));
-                print("\n");
-                printList(T)
-            );
 (*
   val charToInt = fn : char -> int
 
@@ -31,11 +25,15 @@ fun pad0 (l) =
 (*
   This function reverses given list
 *)
-fun revH0([], ans)=ans
-|   revH0(lst as h::t, ans) = revH0(t, h::ans);
+
 
 fun revH(l) =
-      revH0(l, []);
+    let
+      fun revH0([], ans)=ans
+      |   revH0(lst as h::t, ans) = revH0(t, h::ans)
+    in
+      revH0(l, [])
+    end;
 
 (*
   This function finds length of given list
@@ -54,14 +52,14 @@ fun adjustLength(a,b) =
 (*
   This function splits the list in the argument in two parts
 *)
-fun splitList0 (lst, 0, A) =(revH(A), lst)
-|   splitList0 (lst as h::t, diff, A) =
-          splitList0(t, diff-1, h::A);
 
 fun splitList(lst as h::t) =
     let
       val l = lenH(lst)
       val m = l div 2
+      fun splitList0 (lst, 0, A) =(revH(A), lst)
+      |   splitList0 (lst as h::t, diff, A) =
+                splitList0(t, diff-1, h::A)
     in
       splitList0(lst, m, [])
     end;
@@ -69,16 +67,17 @@ fun splitList(lst as h::t) =
 (*
   Append 0's at the end of the list to mimick multiplication by 10 pow m where m is argument in the function
 *)
-fun appendList([], []) = []
-|   appendList([], l2) = l2
-|   appendList(l1, []) = l1
-|   appendList(l1 as h1::t1, l2 as h2::t2) =
-            appendList(t1, h1::l2);
+fun 	appendList([],y)=y
+|	appendList(a::x,y)=a::appendList(x,y);
 
-fun append0_logic (lst, 0) = revH(lst)
-|   append0_logic (lst, m) = append0_logic(0::lst, m-1);
 
-fun append0(lst, m) = append0_logic(revH(lst), m)
+fun append0(lst, m) =
+    let
+      fun append0_logic (lst, 0) = revH(lst)
+      |   append0_logic (lst, m) = append0_logic(0::lst, m-1)
+    in
+      append0_logic(revH(lst), m)
+    end;
 (*
   val makeListOfDigits = fn : int list * int * int * int list -> int list
 
@@ -111,31 +110,33 @@ fun fromString("") = []
 |   fromString(s)  =
                 let
                     val chars=String.explode(s)
+                    fun intToCharArray ([]) = []
+                    |   intToCharArray (l as i::t) =
+                                    let
+                                      val x0=i mod 10 + 48
+                                      val x1=(i div 10) mod 10 + 48
+                                      val x2=(i div 100) mod 10 + 48
+                                      val x3=(i div 1000) mod 10 + 48
+                                    in
+                                      appendList(revH([Char.chr(x3), Char.chr(x2), Char.chr(x1), Char.chr(x0)]),intToCharArray(t))
+                                    end
                 in
                     revH(makeListOfDigits(map charToInt (pad0 chars), 3, 0, []))
                 end;
 
-fun intToCharArray ([]) = []
-|   intToCharArray (l as i::t) =
-                let
-                  val x0=i mod 10 + 48
-                  val x1=(i div 10) mod 10 + 48
-                  val x2=(i div 100) mod 10 + 48
-                  val x3=(i div 1000) mod 10 + 48
-                in
-                  revH([Char.chr(x3), Char.chr(x2), Char.chr(x1), Char.chr(x0)])@intToCharArray(t)
-                end;
 
-fun remove0Char([]) = []
-|   remove0Char(lst as h::t) =  if Char.compare(h,#"0")=EQUAL then remove0Char(t)
-                                else lst;
+
+
 
 fun toString([])        = ""
 |   toString(l as h::t) =
                 let
+                  fun remove0Char([]) = []
+                  |   remove0Char(lst as h::t) =  if Char.compare(h,#"0")=EQUAL then remove0Char(t)
+                                                else lst;
                   val revList=revH(l)
                 in
-                  implode ((revH(intToCharArray(revList))))
+                  implode (remove0Char(revH(intToCharArray(revList))))
                 end;
 
 (*
@@ -168,19 +169,18 @@ fun karatsuba_single(x as [x1,x0], y as [y1,y0]) =
           o/p : [1,1234,5677] which is actual(not reversed) sum of two 8 digit numbers
 *)
 
-fun add_lst0([],[],result as h::t, carry) =
-                if carry=0 then result
-                else carry::result
-|   add_lst0(a as ah::at, b as bh::bt, result, carry)  =
-                let
-                  val sum = (ah+bh+carry) mod 10000
-                  val carry = (ah+bh+carry) div 10000
-                in
-                  add_lst0(at, bt, sum::result, carry)
-                end;
-
 fun add_lst(a,b) =
                 let
+                  fun add_lst0([],[],result as h::t, carry) =
+                                  if carry=0 then result
+                                  else carry::result
+                  |   add_lst0(a as ah::at, b as bh::bt, result, carry)  =
+                    let
+                      val sum = (ah+bh+carry) mod 10000
+                      val carry = (ah+bh+carry) div 10000
+                    in
+                      add_lst0(at, bt, sum::result, carry)
+                    end
                   val (A,B) = adjustLength(a,b)
                   val revA=revH(A)
                   val revB=revH(B)
@@ -205,20 +205,21 @@ fun isAGreaterThanB([], []) = true
                 else if ah=bh then isAGreaterThanB(at, bt)
                 else false;
 
-fun sub_list0([],[], result, _) = result
-|   sub_list0([ah], [bh], result as h::t, borrow) =
-                if borrow=0 then (ah-bh)::result
-                else (ah-1-bh)::result
-|   sub_list0(a as ah::at, b as bh::bt, result, borrow) =
-                let
-                  val sub = (ah-borrow)-bh
-                in
-                  if Int.<(sub,0) then sub_list0(at, bt, (10000+sub)::result, 1)
-                  else sub_list0(at, bt, sub::result, 0)
-                end;
 
 fun sub_list(a as ah::at, b as bh::bt) =
                 let
+
+                  fun sub_list0([],[], result, _) = result
+                  |   sub_list0([ah], [bh], result as h::t, borrow) =
+                    if borrow=0 then (ah-bh)::result
+                    else (ah-1-bh)::result
+                  |   sub_list0(a as ah::at, b as bh::bt, result, borrow) =
+                    let
+                      val sub = (ah-borrow)-bh
+                    in
+                      if Int.<(sub,0) then sub_list0(at, bt, (10000+sub)::result, 1)
+                      else sub_list0(at, bt, sub::result, 0)
+                    end
                   val (A,B) = adjustLength(a,b)
                   val isPositive = isAGreaterThanB(A,B)
                   val revA=revH(A)
@@ -255,11 +256,13 @@ fun karatsuba [a] [b] =[(a*b) div 10000, (a*b) mod 10000]
 (*
   This function implements factorial
 *)
-fun remove0([])=[]
-|   remove0(lst as h::t)= if h=0 then remove0(t)
-                          else lst;
-
-fun factorial0([0]) = [1]
-|   factorial0(n) = remove0(karatsuba (n) (factorial0(sub_list(n,[1]))) );
-
-fun factorial(s) = toString(factorial0(fromString(s)));
+fun factorial(s) =
+  let
+    fun remove0([])=[]
+    |   remove0(lst as h::t)= if h=0 then remove0(t)
+                              else lst
+    fun factorial0([0]) = [1]
+    |   factorial0(n) = remove0(karatsuba (n) (factorial0(sub_list(n,[1]))) )
+  in
+    toString(factorial0(fromString(s)))
+  end;
