@@ -73,19 +73,9 @@ fun lenH([])=0
   This function takes two integer lists and appends 0's at the head of list which has less length until both lists' length becomes same
 *)
 fun adjustLength(a,b) =
-    let
-      val lenA=lenH(a)
-      val lenB=lenH(b)
-
-      fun addLen (lst, 0)= lst
-      |   addLen (lst as h::t, inc) =
-            addLen(0::lst, inc-1);
-
-    in
-      if lenA < lenB then (addLen(a, lenB-lenA),b)
-      else if lenA=lenB then (a,b)
-      else (a, addLen(b, lenA-lenB))
-    end;
+    if lenH(a) = lenH(b) then (a,b)
+    else if Int.>(lenH(a),lenH(b)) then adjustLength(a,0::b)
+    else adjustLength(0::a, b);
 
 (*
   This function splits the list in the argument in two parts
@@ -273,23 +263,6 @@ fun isAGreaterThanB([], []) = true
                 else if ah=bh then isAGreaterThanB(at, bt)
                 else false;
 
-fun isAGreaterThanB(a,b)=
-    let
-      fun isAGreaterThanB0([], []) = true
-      |   isAGreaterThanB0(a, []) = true
-      |   isAGreaterThanB0([], b) = false
-      |   isAGreaterThanB0(A as ah::at, B as bh::bt) =
-                      if Int.>(ah,bh) then true
-                      else if ah=bh then isAGreaterThanB0(at, bt)
-                      else false;
-
-      val (A,B)=adjustLength(a,b)
-    in
-      isAGreaterThanB0(A,B)
-    end;
-
-
-
 (*
   val sub_list = fn : int list * int list -> int list
 
@@ -318,7 +291,6 @@ fun sub_list([], []) = []
                       if Int.<(sub,0) then sub_list0(at, bt, (10000+sub)::result, 1)
                       else sub_list0(at, bt, sub::result, 0)
                     end
-
                   val (A,B) = adjustLength(a,b)
                   val isPositive = isAGreaterThanB(A,B)
                   val revA=revH(A)
@@ -336,39 +308,31 @@ fun sub_list([], []) = []
 fun karatsuba [] [] =[]
 |   karatsuba [] b = b
 |   karatsuba a [] = a
-|   karatsuba [a] [b] = if a*b < 10000 then [a*b] else [(a*b) div 10000, (a*b) mod 10000]
+|   karatsuba [a] [b] =[(a*b) div 10000, (a*b) mod 10000]
 |   karatsuba (a as ah::at) (b as bh::bt) =
                 let
                   val (X,Y)=adjustLength(a,b)
                   val m = (lenH(X) + 1) div 2
-                  val (x1, x0) = splitList(X)
-                  val (y1, y0) = splitList(Y)
-                  (*val (x1,x0)=adjustLength(X1,X0)
-                  val (y1,y0)=adjustLength(Y1,Y0)*)
+                  val (X1, X0) = splitList(X)
+                  val (Y1, Y0) = splitList(Y)
+                  val (x1,x0)=adjustLength(X1,X0)
+                  val (y1,y0)=adjustLength(Y1,Y0)
                   val z2 = karatsuba x1 y1
                   val z0 = karatsuba x0 y0
-                  val diff_x0x1 = sub_list(x0,x1)
-                  val sign_x0x1 = isAGreaterThanB(x0,x1)
-                  val diff_y1y0 = sub_list(y1,y0)
-                  val sign_y1y0 = isAGreaterThanB(y1,y0)
-                  val modProdOfDiff = karatsuba diff_x0x1 diff_y1y0
-                  val z2Plusz0 = add_lst(z2, z0)
-                  val z1 =if sign_x0x1 andalso sign_y1y0 then
-                    add_lst(z2Plusz0, modProdOfDiff)
-                  else
-                    sub_list(z2Plusz0, modProdOfDiff)
-
-                  val z2Padded = append0(z2, m*2)
-                  val z1Padded = append0(z1, m)
-
-                  fun remove0([])=[]
-                  |   remove0(lst as h::t)= if h=0 then remove0(t)
-                                            else lst
-                  val ans=remove0(add_lst(add_lst(z1Padded, z0), z2Padded))
+                  val diff_x = sub_list(x0,x1)
+                  val sign_x = isAGreaterThanB(x0,x1)
+                  val diff_y = sub_list(y1,y0)
+                  val sign_y = isAGreaterThanB(y1,y0)
+                  val modProdOfDiff = karatsuba diff_x diff_y
                 in
-                  if ans=[] then [0]
-                  else ans
+                  if sign_x andalso sign_y then add_lst(add_lst(append0(add_lst(add_lst(z2, modProdOfDiff), z0), m), z0), append0(z2,m*2))
+                  else add_lst(add_lst((append0(sub_list(add_lst(z2, z0),modProdOfDiff), m)), append0(z2,m*2)), z0)
                 end;
+fun karatsuba0 a b = let
+                    val (A,B) = adjustLength(a,b)
+                 in
+                    karatsuba A B
+                 end;
 
 (*
   val factorial = fn : string -> string
@@ -381,7 +345,7 @@ fun factorial(s) =
     |   remove0(lst as h::t)= if h=0 then remove0(t)
                               else lst
     fun factorial0([0]) = [1]
-    |   factorial0(n) = remove0(karatsuba (n) (factorial0(sub_list(n,[1]))) )
+    |   factorial0(n) = remove0(karatsuba0 (n) (factorial0(sub_list(n,[1]))) )
   in
     toString(factorial0(fromString(s)))
   end;
