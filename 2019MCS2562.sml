@@ -11,19 +11,17 @@
 
   2.  lenH = fn : 'a list -> int --> Gives length of given list
 
-  3.  adjustLength = fn : int list * int list -> int list * int list -->
+  3. remove0FromFront = fn : int list -> int list --> This function removes all the leading zeros from the list
+
+  4.  adjustLength = fn : int list * int list -> int list * int list -->
           Takes two lists of different sizes and returns two list of same size by appending 0 in front of small list
 
-  4.  splitList = fn : 'a list -> 'a list * 'a list -->
+  5.  split = fn : 'a list -> 'a list * 'a list -->
           This function splits given list and returns two lists such that length of first list is
           (length of input length) div 2 and remaining components in other one
 
-  5.  appendList = fn : 'a list * 'a list -> 'a list -->
+  6.  appendList = fn : 'a list * 'a list -> 'a list -->
           This function takes two lists and append them and gives one list
-
-  6.  append0 = fn : int list * int -> int list -->
-          This function appends 0's at the end m thimes(which is given in parameter) at the end of the list
-          to replicate multiplication by 10^(4*m) ass our elements in list are in Base 10^4
 
   7.  fromString = fn : string -> int list -->
           This function takes a String and gives a list of numbers which are in base B=10^4 form
@@ -31,26 +29,35 @@
   8.  toString = fn : int list -> string -->
           This function is reverse of fromString i.e. it takes list of numbers in base 10^4 and generates String
 
-  9.  add_lst = fn : int list * int list -> int list -->
+  9.  append0Pow = fn : int list * int -> int list -->
+          This function appends 0's at the end m thimes(which is given in parameter) at the end of the list
+          to replicate multiplication by 10^(4*m) as our elements in list are in Base 10^4
+
+  10.  add_list = fn : int list * int list -> int list -->
           This function adds twos lists of digits in base B=10^4 and returns list of same type
 
-  10. isAGreaterThanB = fn : int list * int list -> bool -->
+  11. isAGreaterThanB = fn : int list * int list -> int -->
           This function checks whether first list of digits(B=10^4) is greater than second list or not
           This function helps is decide sign of outcome of subtraction operation
 
-  11. sub_list = fn : int list * int list -> int list -->
-          This function gives us mod(A-B) where A is first list of digits and B is second list of digits in base 10^4
+  12. sub_list = fn : int list * int list -> int list * int -->
+          This function gives us mod(A-B) where A is first list of digits and B is second list of digits in base 10^4 ans also sign of output using isAGreaterThanB
 
-  12. karatsuba = fn : int list -> int list -> int list -->
+  13. decr = fn : int list -> int list --> This function decrements one from the input list
+
+  14. karatsuba = fn : int list -> int list -> int list -->
           This is implementation of karatsuba's multidigit multiplication for multiplication of two lists of ddigits
           of base 10000 and return list of same kind. This function will be used in finding factorial of large numbers
 
-  13. factorial = fn : string -> string -->
+  15. factorial = fn : string -> string -->
           This function takes numerical String as an input and returns a string containing factorial of that number
 *)
 
 (*This exception will be thrown when input String is not a digit*)
-exception notADigit;
+exception Invalid_Input_exception of string
+
+(*This exception will be thrown when input is empty*)
+exception EmptyInput of string
 
 (*
   This function reverses given list
@@ -66,74 +73,93 @@ fun revH(l) =
 (*
   This function finds length of given list
 *)
-fun lenH([])=0
-|   lenH(h::t)=1+lenH(t);
+fun lenH([]) = 0
+|   lenH(lst as h::t) =
+      let
+        fun lenH0([], len)=len
+        |   lenH0(lst as h::t, len)=lenH0(t, len+1)
+      in
+        lenH0(lst, 0)
+      end;
 
 (*
-  This function takes two integer lists and appends 0's at the head of list which has less length until both lists' length becomes same
+  This function removes zeros from the front of the list. If the input list contains all 0 then output will be [0]
 *)
-fun adjustLength(a,b) =
-    let
-      val lenA=lenH(a)
-      val lenB=lenH(b)
+fun remove0FromFront([])=[]
+|   remove0FromFront([0])=[0]
+|   remove0FromFront(lst as h::t)= if h=0 then remove0FromFront(t)
+                        else lst;
 
-      fun addLen (lst, 0)= lst
-      |   addLen (lst as h::t, inc) =
-            addLen(0::lst, inc-1);
+(*
+  This function takes two lists as parameter and makes size of both lists same by prepanding 0's to the small list
+*)
+fun adjustLength([],[])=([],[])
+|   adjustLength(a,b)=
+          let
+            val A=remove0FromFront(a)
+            val B=remove0FromFront(b)
+            val lenA=lenH(A)
+            val lenB=lenH(B)
 
-    in
-      if lenA < lenB then (addLen(a, lenB-lenA),b)
-      else if lenA=lenB then (a,b)
-      else (a, addLen(b, lenA-lenB))
-    end;
+            fun addLen (lst, 0)= lst
+            |   addLen (lst, inc) =
+              let
+                val inc_1 = inc-1
+              in
+                addLen(0::lst, inc_1)
+              end;
+
+          in
+            if lenA < lenB then (addLen(A, lenB-lenA),B)
+            else if lenA=lenB then (A,B)
+            else (A, addLen(B, lenA-lenB))
+          end;
 
 (*
   This function splits the list in the argument in two parts
 *)
-fun splitList([])=([],[])
-|   splitList(lst as h::t) =
-    let
-      val l = lenH(lst)
-      val m = l div 2
-      fun splitList0 ([], _, A)=(revH(A), [])
-      |   splitList0 (lst, 0, A) =(revH(A), lst)
-      |   splitList0 (lst as h::t, diff, A) =
-                splitList0(t, diff-1, h::A)
-    in
-      splitList0(lst, m, [])
-    end;
+fun split([]) = ([], [])
+|   split([a]) = ([], [a])
+|   split(a as ah::at) =
+      let
+        val len = lenH(a)
+        val splitPoint = len div 2
+        fun splitLists([], A, _)=(revH(A), [])
+        |   splitLists(lst,ans,0) = (revH(ans), lst)
+        |   splitLists(lst as h::t,ans,point) = splitLists(t, h::ans, point-1)
+      in
+        splitLists(a, [], splitPoint)
+      end;
 
 (*
-  Thsi function appends two lists and returns appended list
+  This function appends two input lists
 *)
-fun 	appendList([],y)=y
-|	appendList(a::x,y)=a::appendList(x,y);
-
-(*
-  Append 0's at the end of the list to mimick multiplication by 10 pow m where m is argument in the function
-*)
-fun append0(lst, m) =
-    let
-      fun append0_logic (lst, 0) = revH(lst)
-      |   append0_logic (lst, m) = append0_logic(0::lst, m-1)
-    in
-      append0_logic(revH(lst), m)
-    end;
+fun appendList([], []) = []
+|   appendList(a, []) = a
+|   appendList([], b) = b
+|   appendList(a as ah::at, b as bh::bt) =
+      let
+        val revA=revH(a)
+        fun append([], ans)=ans
+        |   append(x as xh::xt, y) = append(xt, xh::y)
+      in
+        append(revA,b)
+      end;
 
 (*
   val fromString = fn : string -> int list
   This function takes input String and returns list of digits in base B=10^4
 
-  We have created some helper function within this function which are as follows
+  I have created some helper function within this function which are as follows
 
   {
     val makeListOfDigits = fn : int list * int * int * int list -> int list
 
     This function takes list containing digits as an input and gives list which contains number of base 10^4.
-    Here in the Arguments we have passed:
+    Here in the Arguments I have passed:
       digits : padded List of digits in the input String
-      remaining4 : Counter using which we have count when to create a new element in the list when we reach 4 digits
-      x : contains intermediate sum using which we create 4 digit number by picking four digits from the List
+      remaining4 : Counter using which I have count when to create a new element in the list when I reach 4 digits
+      x : contains intermediate sum using which I create 4 digit number by picking four digits from the List
       lst : This is our list which contains output
 
       Sample input : makeListOfDigits([0,0,0,1,2,3,4,5,6,7,8,9], 3, 0, [])
@@ -141,14 +167,14 @@ fun append0(lst, m) =
   }
   {
       val pad0 = fn : char list -> char list
-      This function adds padding to character array which we got by exploding string to get length divisible by 4.
+      This function adds padding to character array which I got by exploding string to get length divisible by 4.
   }
   {
       val charToInt = fn : char -> int
       This function is a mapper function which I have used to convert character elements of an array to integers.
   }
 *)
-fun fromString("") = []
+fun fromString("") = raise EmptyInput "Your input is empty, please input any number"
 |   fromString(s)  =
                 let
                     val chars=String.explode(s)
@@ -170,7 +196,7 @@ fun fromString("") = []
 
                     fun charToInt(c)   =
                       if Char.isDigit(c) then (ord(c)-48)
-                      else raise notADigit;
+                      else raise Invalid_Input_exception ("The input "^s^" is invalid")
 
 
                 in
@@ -178,7 +204,7 @@ fun fromString("") = []
                 end;
 (*
   This fuction converts a list of digits of base B=10^4 into a String.
-  We have created some other functions inside this function to make computation easier.
+  I have created some other functions inside this function to make computation easier.
   And these functions are as follows :
 
   {
@@ -191,7 +217,7 @@ fun fromString("") = []
     val intToCharArray = fn : int list -> char list
 
     This function takes list of digits in base 4 and returns the character array representing as a character for a digit in actual number.
-    And after we get character list we just implode the list to get the String
+    And after I get character list I just implode the list to get the String
   }
 
 *)
@@ -211,7 +237,7 @@ fun toString([])        = ""
                       val x2=(i div 100) mod 10 + 48
                       val x3=(i div 1000) mod 10 + 48
                     in
-                      appendList(revH([Char.chr(x3), Char.chr(x2), Char.chr(x1), Char.chr(x0)]),intToCharArray(t))
+                      revH([Char.chr(x3), Char.chr(x2), Char.chr(x1), Char.chr(x0)])@intToCharArray(t)
                     end
 
                   val revList=revH(l)
@@ -220,168 +246,197 @@ fun toString([])        = ""
                 end;
 
 (*
-  This function takes two lists of same length containg numbers of base 4 and adds both lists and returns another list.
+  This function append zeros to the end of the list replication addition by 10^4 by appending 1 zero to the list
+*)
+ fun append0Pow(lst, 0) = lst
+ |   append0Pow(lst, n) =
+      let
+        val revLst =revH(lst)
+        fun append0(l,0) = revH(l)
+        |   append0(l,m) = append0(0::l,m-1)
+      in
+        append0(revLst, n)
+      end;
+
+(*
+  This function takes two lists containg numbers of base 4 and adds both lists and returns another list.
 
   ex. we want to make sum of two 8 digit numbers
       1234,5678+9999,9999
 
       So now we will pass the list after splitting into four digits i.e.
-      add_lst([1234, 5678], [9999, 9999], [], 0)
+      add_list([1234, 5678], [9999, 9999], [], 0)
           o/p : [1,1234,5677] which is actual(not reversed) sum of two 8 digit numbers
 
-  (
-  Here we will get match nonexhaustive warning as we have guessed a precondition that both the input lists are of same length
-  which we have made sure while calling this function by using adjustLength function.
-  )
 *)
-
-fun add_lst(a,b) =
-                let
-                  fun add_lst0([],[],result as h::t, carry) =
-                                  if carry=0 then result
-                                  else carry::result
-                  |   add_lst0(a as ah::at, b as bh::bt, result, carry)  =
-                    let
-                      val sum = (ah+bh+carry) mod 10000
-                      val carry = (ah+bh+carry) div 10000
-                    in
-                      add_lst0(at, bt, sum::result, carry)
-                    end
-
-                  val (A,B) = adjustLength(a,b)
-                  val revA=revH(A)
-                  val revB=revH(B)
-                in
-                  add_lst0(revA,revB,[],0)
-                end;
+fun add_list([],b)=b
+|   add_list(a,[])=a
+|   add_list(a,b)=
+      let
+        val a_stripped = remove0FromFront(a)
+        val b_stripped = remove0FromFront(b)
+        val (adjustedX,adjustedY) = adjustLength(a_stripped, b_stripped)
+        val x=revH(adjustedX)
+        val y=revH(adjustedY)
+        fun add_lst_helper([], [], ans, carry)=
+              if carry=0 then ans
+              else 1::ans
+        |   add_lst_helper([], b, _, _)=b
+        |   add_lst_helper(a, [], _, _)=a
+        |   add_lst_helper (l1 as h1::t1, l2 as h2::t2, ans, carry) =
+          let
+            val sum=h1+h2+carry
+          in
+            if sum>=10000 then add_lst_helper(t1, t2, (sum mod 10000)::ans, 1)
+            else add_lst_helper(t1, t2, sum::ans, 0)
+          end
+      in
+        add_lst_helper(x,y,[],0)
+      end;
 
 (*
-  val isAGreaterThanB = fn : int list * int list -> bool
+  val isAGreaterThanB = fn : int list * int list -> int
 
   This function takes two numbers in list of B=10^4 and returns
-    true if isAGreaterThanB i.e. A-B will be isPositive
-    else it will return true and we will compute b-a which will be positive
+    1 if isAGreaterThanB i.e. A-B will be isPositive
+    -1 if A is less than B
+    and 0 if both lists are the same
 
-  Here returned boolen value indicates wether your answer to the subtraction operation is positive or negative
-  if the boolean value is true then answer is positive else it is negative
+  Here returned int value indicates wether your answer to the subtraction operation is positive or negative
+  if the int value is 1 then answer is positive else if it is ~1 then it is negative and if it is zero ans is 0
 *)
-fun isAGreaterThanB([], []) = true
-|   isAGreaterThanB(a, []) = true
-|   isAGreaterThanB([], b) = false
-|   isAGreaterThanB(A as ah::at, B as bh::bt) =
-                if Int.>(ah,bh) then true
-                else if ah=bh then isAGreaterThanB(at, bt)
-                else false;
 
-fun isAGreaterThanB(a,b)=
-    let
-      fun isAGreaterThanB0([], []) = true
-      |   isAGreaterThanB0(a, []) = true
-      |   isAGreaterThanB0([], b) = false
-      |   isAGreaterThanB0(A as ah::at, B as bh::bt) =
-                      if Int.>(ah,bh) then true
-                      else if ah=bh then isAGreaterThanB0(at, bt)
-                      else false;
-
-      val (A,B)=adjustLength(a,b)
-    in
-      isAGreaterThanB0(A,B)
-    end;
-
-
+fun isAGreaterThanB ([], []) = 0
+|   isAGreaterThanB ([], b) = ~1
+|   isAGreaterThanB (a, []) = 1
+|   isAGreaterThanB (a as ah::at, b as bh::bt) =
+        let
+          val a_stripped = remove0FromFront(a)
+          val b_stripped = remove0FromFront(b)
+          val (x,y) = adjustLength(a_stripped, b_stripped)
+          fun isAGreaterThanB_helper([], []) = 0
+          |   isAGreaterThanB_helper(a, []) = 1
+          |   isAGreaterThanB_helper([], b) = ~1
+          |   isAGreaterThanB_helper(l1 as h1::t1, l2 as h2::t2) =
+                if h1>h2 then 1
+                else if h1<h2 then ~1
+                else isAGreaterThanB_helper(t1, t2)
+        in
+          isAGreaterThanB_helper(x,y)
+        end;
 
 (*
   val sub_list = fn : int list * int list -> int list
 
   This function which takes two lists of integers of base 10^4 and subtracts these two lists
   and returns answer which will always be positive as I will be returning the big_number-small_number in my logic.
-
-  (
-  Here we will get match nonexhaustive warning as we have guessed a precondition in sub_list0 that both the input lists are of same length
-  which we have made sure while calling this function by using adjustLength function.
-  )
 *)
-fun sub_list([], []) = []
-|   sub_list([], b) = b
-|   sub_list(a, []) = a
-|   sub_list(a as ah::at, b as bh::bt) =
-                let
 
-                  fun sub_list0([],[], result, _) = result
-                  |   sub_list0([ah], [bh], result as h::t, borrow) =
-                    if borrow=0 then (ah-bh)::result
-                    else (ah-1-bh)::result
-                  |   sub_list0(a as ah::at, b as bh::bt, result, borrow) =
-                    let
-                      val sub = (ah-borrow)-bh
-                    in
-                      if Int.<(sub,0) then sub_list0(at, bt, (10000+sub)::result, 1)
-                      else sub_list0(at, bt, sub::result, 0)
-                    end
+fun sub_list(a, []) = (a, 1)
+|   sub_list([], b) = (b, ~1)
+|   sub_list(a, b) =
+      let
+        val a_stripped = remove0FromFront(a)
+        val b_stripped = remove0FromFront(b)
+        val (x,y) = adjustLength(a_stripped, b_stripped)
+        val sign=isAGreaterThanB(x,y)
+        val xRev=revH(x)
+        val yRev=revH(y)
+        fun sub_list_helper([], [], ans, borrow) = ans
+        |   sub_list_helper([], b, _, _) = b
+        |   sub_list_helper(a, [], _, _) = a
+        |   sub_list_helper(l1 as h1::t1, l2 as h2::t2, ans, borrow) =
+              let
+                val sub=h1-borrow-h2
+              in
+                if sub<0 then sub_list_helper(t1, t2, (sub+10000)::ans, 1)
+                else sub_list_helper(t1, t2, sub::ans, 0)
+              end
+        val ans = if sign = 1 then sub_list_helper(xRev,yRev,[],0)
+        else if sign = ~1 then sub_list_helper(yRev,xRev,[],0)
+        else [0]
+      in
+        (remove0FromFront(ans), sign)
+      end;
 
-                  val (A,B) = adjustLength(a,b)
-                  val isPositive = isAGreaterThanB(A,B)
-                  val revA=revH(A)
-                  val revB=revH(B)
-                in
-                  if isPositive then sub_list0(revA,revB,[],0)
-                  else sub_list0(revB,revA,[],0)
-                end;
+(*
+  This function decrements the value represented by input list by 1 which will be used in factorial function
+*)
+fun decr([]) = []
+|   decr([0]) = [0]
+|   decr(l) =
+    let
+      val sub_tuple = sub_list(l,[1])
+    in
+      remove0FromFront(#1 sub_tuple)
+    end;
 
 (*
   val karatsuba = fn : int list -> int list -> int list
 
   Implement of Karatsuba algorithm for multiplication
 *)
-fun karatsuba [] [] =[]
-|   karatsuba [] b = b
-|   karatsuba a [] = a
-|   karatsuba [a] [b] = if a*b < 10000 then [a*b] else [(a*b) div 10000, (a*b) mod 10000]
-|   karatsuba (a as ah::at) (b as bh::bt) =
-                let
-                  val (X,Y)=adjustLength(a,b)
-                  val m = (lenH(X) + 1) div 2
-                  val (x1, x0) = splitList(X)
-                  val (y1, y0) = splitList(Y)
-                  (*val (x1,x0)=adjustLength(X1,X0)
-                  val (y1,y0)=adjustLength(Y1,Y0)*)
-                  val z2 = karatsuba x1 y1
-                  val z0 = karatsuba x0 y0
-                  val diff_x0x1 = sub_list(x0,x1)
-                  val sign_x0x1 = isAGreaterThanB(x0,x1)
-                  val diff_y1y0 = sub_list(y1,y0)
-                  val sign_y1y0 = isAGreaterThanB(y1,y0)
-                  val modProdOfDiff = karatsuba diff_x0x1 diff_y1y0
-                  val z2Plusz0 = add_lst(z2, z0)
-                  val z1 =if sign_x0x1 andalso sign_y1y0 then
-                    add_lst(z2Plusz0, modProdOfDiff)
-                  else
-                    sub_list(z2Plusz0, modProdOfDiff)
+fun karatsuba [] [] = []
+|   karatsuba a b =
+    let
+      val strippedA = remove0FromFront(a)
+      val strippedB = remove0FromFront(b)
 
-                  val z2Padded = append0(z2, m*2)
-                  val z1Padded = append0(z1, m)
-
-                  fun remove0([])=[]
-                  |   remove0(lst as h::t)= if h=0 then remove0(t)
-                                            else lst
-                  val ans=remove0(add_lst(add_lst(z1Padded, z0), z2Padded))
-                in
-                  if ans=[] then [0]
-                  else ans
-                end;
+      fun karatsuba_helper [0] [0] = [0]
+      |   karatsuba_helper a [0] = [0]
+      |   karatsuba_helper [0] b = [0]
+      |   karatsuba_helper [1] b = b
+      |   karatsuba_helper a [1] = a
+      |   karatsuba_helper [a] [b] = if a*b>=10000 then [a*b div 10000, a*b mod 10000]
+                              else [a*b]
+      |   karatsuba_helper a b =
+            let
+              val a_stripped = remove0FromFront(a)
+              val b_stripped = remove0FromFront(b)
+              val (A,B) = adjustLength(a_stripped, b_stripped)
+              val len = lenH A
+              val m = (len+1) div 2
+              val (x1, x0) = split(A)
+              val (y1, y0) = split(B)
+              val z2 = karatsuba x1 y1
+              val z0 = karatsuba x0 y0
+              val z2Plusz0 = add_list(z2, z0)
+              val (x0SubX1, signX) = sub_list(x0, x1)
+              val (y1SubY0, signY) = sub_list(y1, y0)
+              val mulForZ0 = karatsuba x0SubX1 y1SubY0
+              val z1 = if signX*signY = 1 then (add_list(z2Plusz0, mulForZ0),0)
+              else sub_list(z2Plusz0, mulForZ0)
+              val z2Pow = append0Pow(z2, m*2)
+              val z1Pow = append0Pow(#1 z1, m)
+              val sumOfz2z1Pow = add_list(z2Pow, z1Pow)
+              val ans = add_list(sumOfz2z1Pow, z0)
+            in
+              remove0FromFront(ans)
+            end
+    in
+        karatsuba_helper strippedA strippedB
+    end;
 
 (*
   val factorial = fn : string -> string
 
   This function implements factorial
 *)
-fun factorial(s) =
-  let
-    fun remove0([])=[]
-    |   remove0(lst as h::t)= if h=0 then remove0(t)
-                              else lst
-    fun factorial0([0]) = [1]
-    |   factorial0(n) = remove0(karatsuba (n) (factorial0(sub_list(n,[1]))) )
-  in
-    toString(factorial0(fromString(s)))
-  end;
+fun factorial "" = raise EmptyInput "Your input is empty Please enter any number"
+|   factorial n =
+      let
+        (*val t =Time.now()*)
+        val ipList=fromString n
+        fun factorial_helper [0] = [1]
+        |   factorial_helper n = karatsuba n (factorial_helper(decr(n)))
+      in
+      (* I wrote this code to get running time of factorial in seconds
+      (
+      toString(factorial_helper(ipList)), print(Time.toString(Time.-(Time.now() , t))^"\n")
+      )
+      *)
+      toString(factorial_helper(ipList))
+
+      end
+        handle Invalid_Input_exception s => s
+        |  EmptyInput s => s
